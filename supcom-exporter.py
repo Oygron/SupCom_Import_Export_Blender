@@ -695,9 +695,10 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 	b_index = len(mesh.bones)
 
 
-
+	#print ("iterate bone",bone.name)
 	bone_matrix = bone.matrix_local.transposed()
-
+	#print ("bone_matrix",bone_matrix)
+	
 	# Calculate the inverse rest pose for the bone #instead bonearmmat*worldmat = Matrix['BONESPACE']
 	b_rest_pose 	= bone_matrix * MArmatureWorld
 	b_rest_pose_inv = ( b_rest_pose * xy_to_xz_transform ).inverted()
@@ -706,17 +707,23 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 		rel_mat = b_rest_pose * xy_to_xz_transform
 		#root pos is the same as the rest-pose
 	else:
-		parent_matrix_inv = Matrix( parent.matrix_local ).inverted()
+		parent_matrix_inv = Matrix( parent.matrix_local.transposed() ).inverted()
 		rel_mat = Matrix(bone_matrix * parent_matrix_inv)
 		# must be BM * PMI in that order
 		# do not use an extra (absolute) extra rotation here, cause this is only relative
-
+	
+	#print ("rel_mat",rel_mat)
+	
 	#  Position & Rotation   relative to parent (if there is a parent)
-	b_rotation = rel_mat.to_quaternion()#.normalize()
-
+	b_rotation = rel_mat.transposed().to_quaternion()#.normalize()
+	
+	#print ("b_rotation",b_rotation)
+	
 	#row 3, cols 0,1,2 indicate position
-	b_position = rel_mat.to_translation()
-
+	b_position = rel_mat.transposed().to_translation()
+	
+	#print ("b_position",b_position)
+	
 	#def __init__(self, name, rest_pose_inv, rotation, position, parent_index):
 	sc_bone = scm_bone( bone.name, b_rest_pose_inv, b_rotation, b_position, scm_parent_index )
 
@@ -730,10 +737,12 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 
 
 def make_scm(arm_obj):
-
+	global BONES
 	global MArmatureWorld
 	global xy_to_xz_transform
-
+	
+	BONES = []
+	
 	arm = arm_obj.data
 
 	scn = bpy.context.scene
@@ -870,7 +879,7 @@ def make_sca(arm_obj, action):
 	global BONES
 	global MArmatureWorld
 	global xy_to_xz_transform
-
+	BONES = []
 
 	scene = bpy.context.scene
 	context = bpy.context
@@ -964,7 +973,7 @@ def export_scm(outdir):
 	global VERSION, USER_INFO
 	global MArmatureWorld
 	global xy_to_xz_transform
-
+	
 	bpy.ops.object.mode_set(mode='OBJECT')
 
 	xy_to_xz_transform.resize_4x4()

@@ -10,8 +10,6 @@ They'll appear in import/export category in Blender.
 
 Tested on Blender 2.71
 
-Known issue : 
-Bones doesn't have the correct orientation once exported.
 
 
 More informations at :
