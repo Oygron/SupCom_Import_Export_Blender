@@ -140,6 +140,8 @@ class scm_bone :
 			readRPI[i] = readout[i*4:i*4+4]
 
 		self.rel_mat_inv = Matrix((readRPI[0], readRPI[1], readRPI[2], readRPI[3]))#*xy_to_xz_transform #note rot here changes pointing direction of spikie
+		
+		
 		self.rel_mat = self.rel_mat_inv.inverted()
 
 
@@ -153,14 +155,14 @@ class scm_bone :
 
 		#// Index of the bone's parent in the SCM_BoneData array
 		self.parent_index = readout[24]
-
+		
 		# Read bone name
 		#oldpos = file.tell()
 		#file.seek(bone[..], 0)
 		#self.name = file.readline()
 		#file.seek(oldpos, 0)
 
-
+		self.dump()
 		return self
 
 	def dump(self):
@@ -172,7 +174,8 @@ class scm_bone :
 			print( 'Parent     ', self.parent.name)
 		else:
 			print( 'Parent     <NONE>')
-		print( 'Rest Pose Inv.')
+		print( 'Rest Pose Inv.',self.rel_mat_inv)
+		print( 'Rest Pose',self.rel_mat)
 		#for row in range(4):
 			#print( '  ', self.rest_pose_inv[row])
 
@@ -368,6 +371,7 @@ class scm_mesh :
 
 class sca_bone:
 
+	name = ''
 	position = []
 	rotation = []
 	#changed: rototation -> rotation
@@ -450,9 +454,6 @@ class sca_anim :
 
 	def calcAnimBoneMatrix(self, frame, bone_index, armature_bones, frame_index):
 		global xy_to_xz_transform
-
-
-
 
 		bone = frame.bones[bone_index];
 		parent_index = self.bonelinks[bone_index]
