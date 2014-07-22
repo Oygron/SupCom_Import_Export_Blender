@@ -773,7 +773,7 @@ def make_scm(arm_obj):
 	# Create SCM Mesh
 	supcom_mesh = scm_mesh()
 
-	# Traverse the bone tree and  check if there is one root bone
+	# Traverse the bone tree and check if there is one root bone
 	numroots = 0
 	for bone in arm.bones.values():
 		if (bone.parent == None):

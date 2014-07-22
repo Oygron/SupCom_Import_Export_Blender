@@ -381,9 +381,10 @@ class sca_bone:
 	pose_matrix = []
 	#rel_mat = None
 
-	def __init__(self, pos, rot):
+	def __init__(self, pos, rot, name_):
 		self.position = pos
 		self.rotation = rot
+		self.name = name_
 		self.rel_matrix = None
 		self.pose_matrix = None
 		#self.rel_mat = None
@@ -408,7 +409,7 @@ class sca_frame:
 		self.bones = []
 		self.anim = anim
 
-	def load(self, file):
+	def load(self, file,bonenames):
 		frameheader_fmt = 'fi'
 		frameheader_size = struct.calcsize(frameheader_fmt)
 		buffer = file.read(frameheader_size)
@@ -421,7 +422,7 @@ class sca_frame:
 		for b in range (0, self.anim.numbones) :
 			buffer = file.read(posrot_size)
 			posrot = struct.unpack(posrot_fmt, buffer)
-			bone = sca_bone(posrot[0:3], posrot[3:7])
+			bone = sca_bone(posrot[0:3], posrot[3:7],bonenames[b])
 			self.bones.append(bone)
 
 	def dump(self):
@@ -502,7 +503,21 @@ class sca_anim :
 
 		# the (rendered) animation positions are relative to
 		# both the parent, and to the relative rest position of the bone.
-		bone.pose_matrix = Matrix(bone.rel_matrix * armature_bones[bone_index].rel_matrix_inv)#* xy_to_xz_transform)
+		#TODO: rechercher avec le nom, ici on a juste l'index, qui diffèrent entre le fichier de mesh et l'animation
+		restBone = None
+		for rBone in armature_bones:
+			#print ("name",rBone.name)
+			if rBone.name == bone.name:
+				restBone = rBone
+				break
+		
+		if (restBone == None):
+			my_popup(bone.name + " not found")
+			print(bone.name + " not found")
+			#return
+		
+		#bone.pose_matrix = Matrix(bone.rel_matrix * armature_bones[bone_index].rel_matrix_inv)#* xy_to_xz_transform)
+		bone.pose_matrix = Matrix(bone.rel_matrix * restBone.rel_matrix_inv)#* xy_to_xz_transform)
 
 		# pose position relative to the armature
 		bone.pose_matrix.transpose()
@@ -576,7 +591,7 @@ class sca_anim :
 
 		for f in range (0, numframes) :
 			frame = sca_frame(self)
-			frame.load(sca)
+			frame.load(sca , self.bonenames)
 			self.frames.append(frame)
 
 		sca.close()
@@ -759,6 +774,9 @@ def read_scm(addAnim) :
 
 
 def read_anim(mesh):
+	
+	#TODO: faire en sorte que mesh soit importé du fichier
+	
 	if mesh == []:
 		print ('meshUndefined')
 		my_popup('Mesh Undefined')

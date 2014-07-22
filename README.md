@@ -11,7 +11,7 @@ They'll appear in import/export category in Blender.
 Tested on Blender 2.71
 
 known bugs :
-Order of bones are not respected at export. Creates mess when importing animations.
+Order of bones are not respected at export.
 
 
 More informations at :
