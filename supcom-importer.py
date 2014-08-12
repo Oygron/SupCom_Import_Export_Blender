@@ -921,7 +921,7 @@ def read_end_anim(mesh,anim):
 	print( arm_obj.name)
 
 	arm_obj.animation_data_create()
-	action = bpy.data.actions.new(name=sca_filepath[2])
+	action = bpy.data.actions.new(name=sca_filepath[2].rstrip(".sca"))
 	arm_obj.animation_data.action = action
 
 	pose = arm_obj.pose
@@ -1046,9 +1046,9 @@ class IMPORT_OT_sca(bpy.types.Operator):
 			global globMesh
 			read_anim(globMesh)
 		else:
-			scm_filepath[0] = ""
-			scm_filepath[1] = ""
-			scm_filepath[2] = "Non Supported"
+			sca_filepath[0] = ""
+			sca_filepath[1] = ""
+			sca_filepath[2] = "Non Supported"
 		return {'FINISHED'}
 
 	def invoke(self, context, event):

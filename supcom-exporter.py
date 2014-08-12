@@ -1070,7 +1070,7 @@ def export_sca(outdir):
 		#action[0] = the key,  action[1] = the dictionary
 		####maybe this could help?
 		animation = make_sca(arm_obj, action)
-		animation.save(outdir + action.name)
+		animation.save(outdir + action.name + ".sca")
 		
 		my_popup_info("Action saved to " + action.name)
 
