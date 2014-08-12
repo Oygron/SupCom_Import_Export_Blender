@@ -84,13 +84,18 @@ LOG_FILENAME = "SC-E_LOG.txt"
 ######################################################
 # Init Supreme Commander SCM( _bone, _vertex, _mesh), SCA(_bone, _frame, _anim) Layout
 ######################################################
-xy_to_xz_transform = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0]))
+xy_to_xz_transform = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
 	#	-1	0	0
 	#	0	0	1
 	#	0	1	0
 
-globMesh = []
+#export matrix
+xz_to_xy_transform = Matrix(([ 1, 0, 0],
+							[ 0, 0, -1],
+							[ 0, 1, 0])).to_4x4()
 
+globMesh = []
+MArmatureWorld = Matrix()
 
 def my_popup(msg):
 	def draw(self, context):
@@ -123,7 +128,7 @@ class SimpleOperator(bpy.types.Operator):
 	
 	optsList = bpy.props.EnumProperty(items=[])
 	
-	mesh = None
+	meshBones = None
 	anim = None
 	objBoneNames = None
 	bone_num = None
@@ -150,7 +155,7 @@ class SimpleOperator(bpy.types.Operator):
 		
 		self.anim.bonenames[self.bone_num] = self.optsList
 		
-		check_bone(self.mesh,self.anim,self.objBoneNames,self.bone_num + 1)
+		check_bone(self.meshBones,self.anim,self.objBoneNames,self.bone_num + 1)
 		
 		return {'FINISHED'}
 
@@ -173,15 +178,32 @@ class scm_bone :
 	#numchildren = 0
 	#global xy_to_xz_transform
 
-	def __init__(self, name):
+	def __init__(self, name, rest_pose_inv = None, rotation = None, position = None, parent_index = 0):
 		self.name = name
 		#self.rest_pose_inv = [[0.0] * 4] * 4
 		#self.position = [0.0] * 3
 		#self.rotation = [0.0] * 4
-		self.rel_mat_inv = Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
-		self.rel_mat = Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
-		self.rotation = Quaternion((0,0,0,0))
-		self.position = Vector((0,0,0))
+		
+		self.parent_index = parent_index
+		
+		if rest_pose_inv == None:
+			self.rel_mat_inv = Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
+			self.rel_mat = Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
+		else:
+			self.rel_mat_inv = rest_pose_inv
+			self.rel_mat = rest_pose_inv.inverted()
+		
+		if rotation == None:
+			self.rotation = Quaternion((0,0,0,0))
+		else:
+			self.rotation = rotation
+		
+		if position == None:
+			self.position = Vector((0,0,0))
+		else:
+			self.position = position
+
+
 
 	def load(self, file):
 		#global xy_to_xz_transform
@@ -221,6 +243,8 @@ class scm_bone :
 
 		self.dump()
 		return self
+		
+
 
 	def dump(self):
 		print( 'Bone       ', self.name)
@@ -577,6 +601,8 @@ class sca_anim :
 			#return
 		
 		#bone.pose_matrix = Matrix(bone.rel_matrix * armature_bones[bone_index].rel_matrix_inv)#* xy_to_xz_transform)
+		#print ("bone.rel_matrix",bone.rel_matrix)
+		#print ("restBone.rel_matrix_inv",restBone.rel_matrix_inv)
 		bone.pose_matrix = Matrix(bone.rel_matrix * restBone.rel_matrix_inv)#* xy_to_xz_transform)
 
 		# pose position relative to the armature
@@ -708,7 +734,7 @@ def read_scm() :
 	#
 
 
-	xy_to_xz_transform.resize_4x4()
+	#xy_to_xz_transform.resize_4x4()
 	#bpy.ops.object.mode_set(mode='OBJECT')
 	#scene = Blender.Scene.GetCurrent()
 	scene = bpy.context.scene
@@ -840,20 +866,146 @@ def read_scm() :
 	globMesh = mesh
 	
 
+def iterate_bones(meshBones, bone, parent = None, scm_parent_index = -1):
 
+	global MArmatureWorld
+	global xz_to_xy_transform
+
+
+
+
+	if (parent != None and bone.parent.name != parent.name):
+		my_popup("Error: Invalid parenting in bone ... multiple parents?!")
+		print("Error: Invalid parenting in bone ... multiple parents?!")
+		#print( "Invalid parenting in bone", bone.name," and parent ", parent.name)
+		return
+
+	b_rest_pose 	= Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
+	b_rest_pose_inv = Matrix(([0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]))
+	b_rotation		= Quaternion(( 0,0,0,0 ))
+	b_position		= Vector(( 0,0,0 ))
+	b_index = len(meshBones)
+
+
+	#print ("iterate bone",bone.name)
+	bone_matrix = bone.matrix_local.transposed()
+	#print ("bone_matrix",bone_matrix)
+	
+	# Calculate the inverse rest pose for the bone #instead bonearmmat*worldmat = Matrix['BONESPACE']
+	b_rest_pose 	= bone_matrix * MArmatureWorld
+	b_rest_pose_inv = ( b_rest_pose * xz_to_xy_transform ).inverted()
+
+	if (parent == None):
+		rel_mat = b_rest_pose * xz_to_xy_transform
+		#root pos is the same as the rest-pose
+	else:
+		parent_matrix_inv = Matrix( parent.matrix_local.transposed() ).inverted()
+		rel_mat = Matrix(bone_matrix * parent_matrix_inv)
+		# must be BM * PMI in that order
+		# do not use an extra (absolute) extra rotation here, cause this is only relative
+	
+	#print ("rel_mat",rel_mat)
+	
+	#  Position & Rotation   relative to parent (if there is a parent)
+	b_rotation = rel_mat.transposed().to_quaternion()#.normalize()
+	
+	#print ("b_rotation",b_rotation)
+	
+	#row 3, cols 0,1,2 indicate position
+	b_position = rel_mat.transposed().to_translation()
+	
+	#print ("b_position",b_position)
+	
+	#def __init__(self, name, rest_pose_inv, rotation, position, parent_index):
+	#print ("boneReadName",bone.name)
+	#print ("b_rest_pose_inv",b_rest_pose_inv)
+	sc_bone = scm_bone( bone.name, b_rest_pose_inv, b_rotation, b_position, scm_parent_index )
+
+	meshBones.append(sc_bone)
+
+	# recursive call for all children
+	if (bone.children != None):
+		for child in bone.children:
+			iterate_bones( meshBones, child, bone, b_index )
+
+def get_mesh_bones():
+	scene = bpy.context.scene
+
+	# Get Selected object(s)
+	selected_objects = bpy.context.selected_objects
+
+	# Priority to selected armature
+	arm_obj = None
+	for obj in selected_objects:
+		if obj.type == "ARMATURE":
+			arm_obj = obj
+			break
+
+	# Is there one armature? Take this one
+	if arm_obj == None :
+		for obj in scene.objects:
+			if obj.type == "ARMATURE":
+				arm_obj = obj
+				break
+
+	if arm_obj == None:
+		popup("Error: Please select your armature.%t|OK")
+		return
+		
+	MArmatureWorld = Matrix(arm_obj.matrix_world)
+	
+	arm = arm_obj.data
+	meshBones = []
+	for bone in arm.bones.values():
+		if (bone.parent == None):
+			iterate_bones(meshBones, bone)
+	
+	if meshBones == []:
+		print ('No bone in project')
+		my_popup('No bone in project')
+		return
+		
+	for bone in meshBones:
+		if (bone.parent_index != -1):
+			bone.parent = meshBones[bone.parent_index]
+		else:
+			bone.parent = 0
+
+		# the bone matrix relative to the parent.
+		if (bone.parent != 0):
+			mrel = (bone.rel_mat) * Matrix(bone.parent.rel_mat).inverted() #* xy_to_xz_transform
+			bone.rel_matrix_inv = Matrix(mrel).inverted()
+		else:
+			mrel = bone.rel_mat * xy_to_xz_transform  #there is no parent
+			bone.rel_matrix_inv = Matrix(mrel).inverted()
+				
+	#debug
+	#for b in meshBones:
+	#	print ("name",b.name)
+	#	print ("inv",b.rel_matrix_inv)
+	#	print ("inv0",b.rel_mat_inv)
+	
+	return meshBones
 
 def read_anim(mesh):
 	
 	#TODO: faire en sorte que mesh soit importé de l'objet courant
 	
-	if mesh == []:
-		print ('meshUndefined')
-		my_popup('Mesh Undefined')
-		return
-
+	#if mesh == []:
+	#	print ('meshUndefined')
+	#	my_popup('Mesh Undefined')
+	#	return
+		
+	#meshBones = mesh.bones
+	
+	#for b in mesh.bones:
+	#	print ("name",b.name)
+	#	print ("inv",b.rel_matrix_inv)
+	#	print ("inv0",b.rel_mat_inv)
+		
 	global xy_to_xz_transform
 	global sca_filepath # [0] both [1] path [2] name
-
+	global MArmatureWorld
 	#xy_to_xz_quat = xy_to_xz_transform.toQuat()
 
 	print( "=== LOADING Sup Com Animation ===")
@@ -862,21 +1014,23 @@ def read_anim(mesh):
 	anim = sca_anim()
 	anim.load(sca_filepath[0])
 	
-	objBoneNames = [rBone.name for rBone in mesh.bones]
-	print (objBoneNames)
-	return check_bone(mesh,anim,objBoneNames,0)
+	meshBones = get_mesh_bones()
+	
+	objBoneNames = [rBone.name for rBone in meshBones]
+	#print (objBoneNames)
+	return check_bone(meshBones,anim,objBoneNames,0)
 	
 	
-def check_bone(mesh,anim,objBoneNames,bone_num):
+def check_bone(meshBones,anim,objBoneNames,bone_num):
 	if (bone_num < len(anim.bonenames)):
-		print("check_bone",anim.bonenames[bone_num])
+		#print("check_bone",anim.bonenames[bone_num])
 		if anim.bonenames[bone_num] not in objBoneNames:
 			print (anim.bonenames[bone_num],"not found")
 			bpy.utils.unregister_class(SimpleOperator)
 			
-			SimpleOperator.bl_label = anim.bonenames[bone_num]+"not found, select equivalent"
+			SimpleOperator.bl_label = anim.bonenames[bone_num]+" not found, select substitute"
 			
-			SimpleOperator.mesh = mesh
+			SimpleOperator.meshBones = meshBones
 			SimpleOperator.anim = anim
 			SimpleOperator.objBoneNames = objBoneNames
 			SimpleOperator.bone_num = bone_num
@@ -891,16 +1045,16 @@ def check_bone(mesh,anim,objBoneNames,bone_num):
 			
 			return
 		else:
-			return check_bone(mesh,anim,objBoneNames,bone_num+1)
+			return check_bone(meshBones,anim,objBoneNames,bone_num+1)
 	else:
-		return read_end_anim(mesh,anim)
+		return read_end_anim(meshBones,anim)
 
-def read_end_anim(mesh,anim):
+def read_end_anim(meshBones,anim):
 	global xy_to_xz_transform
 	global sca_filepath # [0] both [1] path [2] name
 	#ProgBarLSCA = ProgressBar( "Imp: Frames", len(anim.frames))
 	
-	print ("post traitement",anim.bonenames)
+	#print ("post traitement",anim.bonenames)
 	
 	#scene = Blender.Scene.GetCurrent()
 	scene = bpy.context.scene
@@ -945,7 +1099,7 @@ def read_end_anim(mesh,anim):
 
 				# this changes the relative orientation (supcom) to absolute orientation (blender)
 				frame.bones[b].name = anim.bonenames[b]
-				anim.calcAnimBoneMatrix(frame, b, mesh.bones, frame_index)
+				anim.calcAnimBoneMatrix(frame, b, meshBones, frame_index)
 
 				if (pose_bone == None):
 					print( 'Frame %d - Bone \"%s\" not found' % (frame_index, anim.bonenames[b]))

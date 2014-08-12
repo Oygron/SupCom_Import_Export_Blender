@@ -111,7 +111,7 @@ LOG_VERT = 0
 #Transform matrix	    z -> yx -> xy -> z
 xy_to_xz_transform = Matrix(([ 1, 0, 0],
 							[ 0, 0, -1],
-							[ 0, 1, 0]))
+							[ 0, 1, 0])).to_4x4()
 # Armature world matrix
 MArmatureWorld = Matrix()
 BONES = []
@@ -977,7 +977,7 @@ def export_scm(outdir):
 	
 	bpy.ops.object.mode_set(mode='OBJECT')
 
-	xy_to_xz_transform.resize_4x4()
+	#xy_to_xz_transform.resize_4x4()
 
 	scene = bpy.context.scene
 
