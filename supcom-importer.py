@@ -55,7 +55,10 @@ from bpy_extras.io_utils import unpack_list, unpack_face_list
 
 from string import *
 from struct import *
+
 from bpy.props import *
+
+from time import sleep
 
 VERSION = '4.0'
 
@@ -98,6 +101,60 @@ def my_popup_warn(msg):
 	def draw(self, context):
 		self.layout.label(msg)
 	bpy.context.window_manager.popup_menu(draw, title="Warning", icon='ERROR')
+
+
+
+optionsList = [
+        ("1","stuff 1","0"),("2","stuff 2","0"),("3","stuff 3","0")]
+
+counter = 0
+
+
+
+def uvtex_items(self, context):
+	return optionsList
+#    return [(t.name, t.name, t.name) for t in context.object.data.uv_textures]
+
+class SimpleOperator(bpy.types.Operator):
+	"""Tooltip"""
+	bl_idname = "object.simple_operator"
+	bl_label = "Simple Object Operator"
+	#bl_options = {'REGISTER', 'UNDO'}
+	
+	optsList = bpy.props.EnumProperty(items=[])
+	
+	mesh = None
+	anim = None
+	objBoneNames = None
+	bone_num = None
+	
+	
+	@classmethod
+	def poll(cls, context):
+		print("poll")
+		return True
+	
+	def invoke(self, context, event):
+		print("invoke")
+		return context.window_manager.invoke_props_dialog(self)
+	
+	def draw(self, context):
+		print("draw")
+		layout = self.layout
+		col = layout.column()
+		col.prop(self, "optsList", expand=True)
+	
+	def execute(self, context):
+		print("execute")
+		print("choice",self.optsList)
+		
+		self.anim.bonenames[self.bone_num] = self.optsList
+		
+		check_bone(self.mesh,self.anim,self.objBoneNames,self.bone_num + 1)
+		
+		return {'FINISHED'}
+
+
 
 class scm_bone :
 
@@ -457,6 +514,9 @@ class sca_anim :
 		global xy_to_xz_transform
 
 		bone = frame.bones[bone_index];
+		
+		
+		
 		parent_index = self.bonelinks[bone_index]
 
 		# note that the pos/rot of the armature_bones are still in relative supcom coordinates.
@@ -503,7 +563,7 @@ class sca_anim :
 
 		# the (rendered) animation positions are relative to
 		# both the parent, and to the relative rest position of the bone.
-		#TODO: rechercher avec le nom, ici on a juste l'index, qui diffèrent entre le fichier de mesh et l'animation
+		#rechercher avec le nom, ici on a juste l'index, qui diffèrent entre le fichier de mesh et l'animation OK
 		restBone = None
 		for rBone in armature_bones:
 			#print ("name",rBone.name)
@@ -625,13 +685,28 @@ def pad(size):
 # Blender Interface
 #**************************************************************************************************
 
-def read_scm(addAnim) :
+def read_scm() :
 	global xy_to_xz_transform
 	global scm_filepath # [0] both [1] path [2] name
 	global sca_filepath # [0] both [1] path [2] name
 
 	print( "=== LOADING Sup Com Model ===")
 	print( "")
+
+	
+	#global counter
+	#
+	#if (counter < 10):
+	#	
+	#	bpy.utils.unregister_class(SimpleOperator)
+	#	SimpleOperator.bl_label = "toto"+str(counter)
+	#	bpy.utils.register_class(SimpleOperator)
+    #
+	#	bpy.ops.object.simple_operator('INVOKE_DEFAULT')
+	#	
+	#	return
+	#
+
 
 	xy_to_xz_transform.resize_4x4()
 	#bpy.ops.object.mode_set(mode='OBJECT')
@@ -650,13 +725,6 @@ def read_scm(addAnim) :
 	print( "armature ", armature_name)
 
 	###		CREATE ARMATURE
-	#armObj = Object.New('Armature', armature_name)	#bad
-
-	#armData = Blender.Armature.Armature(armature_name)
-	#armData.drawAxes = True
-	#armData.makeEditable()
-
-	### en blender 2.71 :
 	armData = bpy.data.armatures.new(armature_name)
 	armData.show_axes = True
 
@@ -770,12 +838,13 @@ def read_scm(addAnim) :
 
 	global globMesh
 	globMesh = mesh
+	
 
 
 
 def read_anim(mesh):
 	
-	#TODO: faire en sorte que mesh soit importé du fichier
+	#TODO: faire en sorte que mesh soit importé de l'objet courant
 	
 	if mesh == []:
 		print ('meshUndefined')
@@ -792,9 +861,47 @@ def read_anim(mesh):
 
 	anim = sca_anim()
 	anim.load(sca_filepath[0])
+	
+	objBoneNames = [rBone.name for rBone in mesh.bones]
+	print (objBoneNames)
+	return check_bone(mesh,anim,objBoneNames,0)
+	
+	
+def check_bone(mesh,anim,objBoneNames,bone_num):
+	if (bone_num < len(anim.bonenames)):
+		print("check_bone",anim.bonenames[bone_num])
+		if anim.bonenames[bone_num] not in objBoneNames:
+			print (anim.bonenames[bone_num],"not found")
+			bpy.utils.unregister_class(SimpleOperator)
+			
+			SimpleOperator.bl_label = anim.bonenames[bone_num]+"not found, select equivalent"
+			
+			SimpleOperator.mesh = mesh
+			SimpleOperator.anim = anim
+			SimpleOperator.objBoneNames = objBoneNames
+			SimpleOperator.bone_num = bone_num
+			
+			itemList = [(b,b,b) for b in objBoneNames]
+			itemList += [("_importer_Discard_","Discard","Discard")]
+			SimpleOperator.optsList = bpy.props.EnumProperty(items=itemList)
+				
+			bpy.utils.register_class(SimpleOperator)
+			
+			bpy.ops.object.simple_operator('INVOKE_DEFAULT')
+			
+			return
+		else:
+			return check_bone(mesh,anim,objBoneNames,bone_num+1)
+	else:
+		return read_end_anim(mesh,anim)
 
+def read_end_anim(mesh,anim):
+	global xy_to_xz_transform
+	global sca_filepath # [0] both [1] path [2] name
 	#ProgBarLSCA = ProgressBar( "Imp: Frames", len(anim.frames))
-
+	
+	print ("post traitement",anim.bonenames)
+	
 	#scene = Blender.Scene.GetCurrent()
 	scene = bpy.context.scene
 	context = bpy.context
@@ -830,31 +937,34 @@ def read_anim(mesh):
 
 		# this inserts the bones information into blender.
 		for b in range(len(frame.bones)):
-			if (frame_index == 0):
-				print("bone",anim.bonenames[b])
-			pose_bone = pose.bones[anim.bonenames[b]]
+			if (anim.bonenames[b] != "_importer_Discard_"):
+				if (frame_index == 0):
+					print("bone",anim.bonenames[b])
+				
+				pose_bone = pose.bones[anim.bonenames[b]]
 
-			# this changes the relative orientation (supcom) to absolute orientation (blender)
-			anim.calcAnimBoneMatrix(frame, b, mesh.bones, frame_index)
+				# this changes the relative orientation (supcom) to absolute orientation (blender)
+				frame.bones[b].name = anim.bonenames[b]
+				anim.calcAnimBoneMatrix(frame, b, mesh.bones, frame_index)
 
-			if (pose_bone == None):
-				print( 'Frame %d - Bone \"%s\" not found' % (frame_index, anim.bonenames[b]))
-				my_popup_warn( 'Frame %d - Bone \"%s\" not found' % (frame_index, anim.bonenames[b]))
-				continue
+				if (pose_bone == None):
+					print( 'Frame %d - Bone \"%s\" not found' % (frame_index, anim.bonenames[b]))
+					my_popup_warn( 'Frame %d - Bone \"%s\" not found' % (frame_index, anim.bonenames[b]))
+					continue
 
-			anim_bone = frame.bones[b]
-			#if (frame_index == 0):
-			#	print("matrix",anim_bone.pose_matrix)
-			#	print("posFin",anim_bone.pose_pos)
-			#	print("rotFin",anim_bone.pose_rot)
+				anim_bone = frame.bones[b]
+				#if (frame_index == 0):
+				#	print("matrix",anim_bone.pose_matrix)
+				#	print("posFin",anim_bone.pose_pos)
+				#	print("rotFin",anim_bone.pose_rot)
 
-			pose_bone.location = anim_bone.pose_pos
-			pose_bone.rotation_quaternion = anim_bone.pose_rot
-			pose_bone.scale = Vector((1,1,1))
+				pose_bone.location = anim_bone.pose_pos
+				pose_bone.rotation_quaternion = anim_bone.pose_rot
+				pose_bone.scale = Vector((1,1,1))
 
-			pose_bone.keyframe_insert("location")
-			pose_bone.keyframe_insert("rotation_quaternion")
-			pose_bone.keyframe_insert("scale")
+				pose_bone.keyframe_insert("location")
+				pose_bone.keyframe_insert("rotation_quaternion")
+				pose_bone.keyframe_insert("scale")
 
 	#Blender.Set("curframe", 1)
 	context.scene.frame_set(1)
@@ -885,11 +995,6 @@ class IMPORT_OT_scm(bpy.types.Operator):
 			default="*.scm",
 			options={'HIDDEN'},
 			)
-	addAnim = BoolProperty(
-			name="Add animation",
-			description="link to .sca",
-			default=True,
-			)
 
 	def execute(self, context):
 		#getInputFilenamescm(self, self.filepath, self.importmesh, self.importbone, self.bDebugLogSCM,
@@ -898,12 +1003,19 @@ class IMPORT_OT_scm(bpy.types.Operator):
 		length = len(self.filepath)
 		if self.filepath[length-4:length] == ".scm" :
 			scm_filepath[1], scm_filepath[2]  = os.path.split(self.filepath)
-			read_scm(self.addAnim)
+			#self._timer = context.window_manager.event_timer_add(0.01, context.window)
+			#print("timer launched")
+			#context.window_manager.modal_handler_add(self)
+			read_scm()
+			#sleep(10)
+			#return {'RUNNING_MODAL'}
+			return {'FINISHED'}
+			
 		else:
 			scm_filepath[0] = ""
 			scm_filepath[1] = ""
 			scm_filepath[2] = "Non Supported"
-		return {'FINISHED'}
+			return {'FINISHED'}
 
 	def invoke(self, context, event):
 		wm = context.window_manager

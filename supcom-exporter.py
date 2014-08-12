@@ -760,7 +760,7 @@ def make_scm(arm_obj):
 		if obj.parent == arm_obj and obj.type == 'MESH':
 			#calculate progbar length
 			obj.data.update (calc_tessface=True)
-
+			
 			bmesh_data = obj.data
 			#print ("data",obj.data)
 			pb_length += len(bmesh_data.tessfaces)
@@ -775,6 +775,7 @@ def make_scm(arm_obj):
 
 	# Traverse the bone tree and check if there is one root bone
 	numroots = 0
+	
 	for bone in arm.bones.values():
 		if (bone.parent == None):
 			numroots += 1
