@@ -115,6 +115,7 @@ xy_to_xz_transform = Matrix(([ 1, 0, 0],
 # Armature world matrix
 MArmatureWorld = Matrix()
 BONES = []
+keyedBones = set()
 
 ANIMATION_DURATION = 1.5
 def my_popup(msg):
@@ -140,7 +141,7 @@ class scm_bone :
 	rotation = []
 	position = []
 	parent_index = 0
-	used = False
+	keyed = False
 	name = ""
 
 	def __init__(self, name, rest_pose_inv, rotation, position, parent_index):
@@ -149,7 +150,7 @@ class scm_bone :
 		self.rotation = rotation
 		self.position = position
 		self.parent_index = parent_index
-		self.used = False
+		self.keyed = False
 		self.name = name
 
 	def save(self, file):
@@ -678,8 +679,9 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 	global MArmatureWorld
 	global BONES
 	global xy_to_xz_transform
-
-
+	global keyedBones
+	
+	keyed = False
 
 
 	if (parent != None and bone.parent.name != parent.name):
@@ -729,11 +731,24 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 
 	BONES.append(sc_bone)
 	mesh.bones.append(sc_bone)
-
+	
+	#print ("name",bone.name)
+	#print ("keys",bone.keys())
+	#print ("items",bone.items())
+	#print ("values",bone.values())
+	#print ("values",bone.animation_data)
+	
+	if bone.name in keyedBones:
+		keyed = True
+	
 	# recursive call for all children
 	if (bone.children != None):
 		for child in bone.children:
-			iterate_bones( mesh, child, bone, b_index )
+			keyed = iterate_bones( mesh, child, bone, b_index ) or keyed
+	
+	sc_bone.keyed = keyed
+	
+	return keyed
 
 
 def make_scm(arm_obj):
@@ -875,13 +890,33 @@ def make_scm(arm_obj):
 	return supcom_mesh
 
 
+def getBoneNameAndAction(path):
+
+	return [path.split('"')[1] , path.split('.')[-1]]
+
 def make_sca(arm_obj, action):
 
 	global BONES
 	global MArmatureWorld
 	global xy_to_xz_transform
+	global keyedBones
 	BONES = []
-
+	
+	keyedBones = set()
+	
+	#get textInfo for present keys in armature
+	if arm_obj.animation_data.action:
+		for fc in arm_obj.animation_data.action.fcurves:
+			keyParsed = getBoneNameAndAction(fc.data_path)
+			if (keyParsed[1] in ["scale","rotation_quaternion","location"]):
+				keyedBones.add(keyParsed[0])
+			
+			#print(fc.data_path)
+			#print(fc.data_path.split('"')[1])
+			#print(fc.data_path.split('.')[-1])
+			
+	print ("animatedBones",keyedBones)
+	
 	scene = bpy.context.scene
 	context = bpy.context
 	endframe = context.scene.frame_end
@@ -902,6 +937,27 @@ def make_sca(arm_obj, action):
 		my_popup("there are multiple root bones -> check you bone relations!")
 		print("Error: there are multiple root bones -> check you bone relations!")
 		return
+
+	#print ("BONES")
+	#for b in BONES:
+	#	print (b.name,b.parent_index)
+		
+	BONES2 = [b for b in BONES if b.keyed]
+	
+	for b in BONES2:
+		#on récupère le nom du parent
+		if b.parent_index != -1:
+			parentName = BONES[b.parent_index].name
+			
+			for i in range(len(BONES2)):
+				b2 = BONES2[i]
+				if b2.name == parentName:
+					b.parent_index = i
+	
+	BONES = [b for b in BONES2]
+	#print ("BONES2")
+	#for b in BONES:
+	#	print (b.name,b.parent_index)
 
 	# Add bone names & links
 	for bone in BONES:
@@ -926,7 +982,7 @@ def make_sca(arm_obj, action):
 
 		POSED_BONES = {}
 		for posebone in arm_obj.pose.bones:
-			POSED_BONES[posebone.name] = posebone.matrix #todo: si ça marche pas, tester avec matrix_basis
+			POSED_BONES[posebone.name] = posebone.matrix
 
 		for bone in BONES:
 			#if frame_counter == 0 or frame_counter == 100:

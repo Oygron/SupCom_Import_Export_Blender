@@ -1073,7 +1073,7 @@ def read_end_anim(meshBones,anim):
 	#arm_obj = armObj
 
 	print( arm_obj.name)
-
+	arm_obj.animation_data_clear()
 	arm_obj.animation_data_create()
 	action = bpy.data.actions.new(name=sca_filepath[2].rstrip(".sca"))
 	arm_obj.animation_data.action = action

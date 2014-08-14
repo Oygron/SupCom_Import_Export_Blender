@@ -32,4 +32,4 @@ Order of bones are not respected at export.
 More informations at :
 http://forums.gaspowered.com/viewtopic.php?t=17286
 
-Credits to dan & Brent for the original version and all the engineering work. My unique job was to port the addons from blender 2.49 to blender 2.71
+Credits to dan & Brent for the original version and all the engineering work. My principal job was to port the addons from blender 2.49 to blender 2.71
