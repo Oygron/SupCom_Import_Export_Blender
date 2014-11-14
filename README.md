@@ -14,7 +14,9 @@ Tips :
 
 - When creating a new unit, the central bone (parent of all other bones of the armature) of the unit MUST have the same name as the unit
 
-- All vertices must be in "Vertex Group", and each vertex group must have the name of a bone. If some vertices are not moving, just give assign them to the group with the central bone as bonename.
+- There must exists only one armature in the model. 
+
+- All vertices must be in a "Vertex Group", and each vertex group must have the name of a bone. If some vertices are not moving, just give assign them to the group with the central bone as bonename.
 
 - An animation must be associated with an action (see the NLA editor).
 
