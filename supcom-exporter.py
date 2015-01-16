@@ -104,6 +104,8 @@ LOG_BONE = 0
 LOG_VERT = 0
 
 
+inError = 0
+
 ######################################################
 # Init Supreme Commander SCM( _bone, _vertex, _mesh), SCA(_bone, _frame, _anim) Layout
 ######################################################
@@ -119,9 +121,13 @@ keyedBones = set()
 
 ANIMATION_DURATION = 1.5
 def my_popup(msg):
-	def draw(self, context):
-		self.layout.label(msg)
-	bpy.context.window_manager.popup_menu(draw, title="Error", icon='ERROR')
+	global inError
+	if inError == 0:
+		inError = 1
+		def draw(self, context):
+			self.layout.label(msg)
+		bpy.context.window_manager.popup_menu(draw, title="Error", icon='ERROR')
+	
 
 def my_popup_warn(msg):
 	def draw(self, context):
@@ -1065,7 +1071,7 @@ def export_scm(outdir):
 				break
 
 	if arm_obj == None:
-		popup("Error: Please select your armature.%t|OK")
+		my_popup("Error: Please select your armature.")
 		return
 
 	# this defines the ARMATURE_SPACE.
@@ -1123,7 +1129,7 @@ def export_sca(outdir):
 				break
 
 	if arm_obj == None:
-		popup("Error: Please select your armature.%t|OK")
+		my_popup("Error: Please select your armature.")
 		return
 
 	# this defines the ARMATURE_SPACE.
@@ -1173,6 +1179,8 @@ class EXPORT_OT_scm(bpy.types.Operator):
 		return context.active_object != None
 
 	def execute(self, context):
+		global inError
+		inError = 0
 		scene = bpy.context.scene
 
 		export_scm(self.directory)
@@ -1213,6 +1221,8 @@ class EXPORT_OT_sca(bpy.types.Operator):
 		return context.active_object != None
 
 	def execute(self, context):
+		global inError
+		inError = 0
 		scene = bpy.context.scene
 		export_sca(self.directory)
 
