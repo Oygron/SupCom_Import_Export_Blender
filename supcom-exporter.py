@@ -850,11 +850,16 @@ def make_scm(arm_obj):
 				if (v_boneIndex[0] == -1):
 					v_boneIndex[0] = 0
 
-					Blender.Window.EditMode(0)
-					vert.sel = 1
-					my_popup_warn("Warning: Verticle without Bone Influence in %s. Selected " % (mesh_name))
-					print("Warning: Verticle without Bone Influence in %s. Selected " % (mesh_name))
-
+					#Blender.Window.EditMode(0)
+					bpy.ops.object.mode_set(mode='EDIT')
+					bpy.ops.mesh.select_all(action="DESELECT")
+					
+					#marche pas, je ne sais pas pourquoi
+					vertex.select = True
+					
+					my_popup("Error: Vertice without Bone Influence in %s. Selected " % (mesh_name))
+					print("Error: Vertice without Bone Influence in %s. Selected " % (mesh_name))
+					return
 				v_pos = Vector( vertex.co * (MatrixMesh * xy_to_xz_transform))
 
 				v_nor = vertex.normal * (MatrixMesh * xy_to_xz_transform)
@@ -871,7 +876,12 @@ def make_scm(arm_obj):
 					my_uv = uv.data[face.index].uv2
 				if (i == 2):
 					my_uv = uv.data[face.index].uv3
-
+				
+				if my_uv is None :
+					my_popup("Error: Face %d is not a triangle " % face.index)
+					print("Error: Face %d is not a triangle " % face.index)
+					return
+				
 				v_uv1 = Vector((my_uv[0], 1.0 - my_uv[1]))
 
 				vertList.append( scm_vertex( v_pos, v_nor, v_uv1 , v_boneIndex) )
