@@ -26,7 +26,7 @@ Tips :
 
 
 
-Tested on Blender 2.71 and Supreme Commander - Forged Alliance
+Tested on Blender 2.71 to 2.73 and Supreme Commander - Forged Alliance
 
 known bugs :
 Order of bones are not respected at export.
