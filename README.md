@@ -22,6 +22,7 @@ Tips :
 
 - When exporting, the script will assume the unit name (and so the .scm filename) from the central bone, and the filename for the animation from the action name in Blender (can be seen in the NLA editor). So you'll have only to select the output folder, filenames will be deduced (I hope to change that later, making only a name default value that the user can change).
 
+- All faces must be triangles. No quad or other polygon.
 
 
 
