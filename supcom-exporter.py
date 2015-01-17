@@ -691,8 +691,8 @@ def iterate_bones(mesh, bone, parent = None, scm_parent_index = -1):
 
 
 	if (parent != None and bone.parent.name != parent.name):
-		my_popup("Error: Invalid parenting in bone ... multiple parents?!")
-		print("Error: Invalid parenting in bone ... multiple parents?!")
+		my_popup("Error: Invalid parenting in bone %s multiple parents %s %s ?!" % (bone.name, parent.name, bone.parent.name))
+		print("Error: Invalid parenting in bone %s multiple parents %s %s ?!" % (bone.name, parent.name, bone.parent.name))
 		#print( "Invalid parenting in bone", bone.name," and parent ", parent.name)
 		return
 
@@ -804,6 +804,7 @@ def make_scm(arm_obj):
 	#print ("numroots",numroots)
 	if numroots > 1:
 		my_popup("Error: there are multiple root bones -> check you bone relations!")
+		print("Error: there are multiple root bones -> check you bone relations!")
 		return
 
 
@@ -856,15 +857,23 @@ def make_scm(arm_obj):
 				if (v_boneIndex[0] == -1):
 					v_boneIndex[0] = 0
 
-					#Blender.Window.EditMode(0)
+					bpy.ops.object.mode_set(mode='OBJECT')
+					bpy.ops.object.select_all(action='DESELECT')
+					
+					mesh_obj.select=True
+					bpy.context.scene.objects.active = mesh_obj
+					
 					bpy.ops.object.mode_set(mode='EDIT')
 					bpy.ops.mesh.select_all(action="DESELECT")
+					bpy.context.tool_settings.mesh_select_mode[0] = True
 					
-					#marche pas, je ne sais pas pourquoi
-					vertex.select = True
+					#On ne peut sélectionner les vertices qu'en object mode (apparemment, on bosse sur une copie)
+					bpy.ops.object.mode_set(mode='OBJECT')
+					bmesh_data.vertices[vert].select = True
+					bpy.ops.object.mode_set(mode='EDIT')
 					
-					my_popup("Error: Vertice without Bone Influence in %s. Selected " % (mesh_name))
-					print("Error: Vertice without Bone Influence in %s. Selected " % (mesh_name))
+					my_popup("Error: Vertice without Bone Influence in %s. (Selected) " % (mesh_name))
+					print("Error: Vertice without Bone Influence in %s. (Selected) " % (mesh_name))
 					return
 				v_pos = Vector( vertex.co * (MatrixMesh * xy_to_xz_transform))
 
@@ -884,8 +893,30 @@ def make_scm(arm_obj):
 					my_uv = uv.data[face.index].uv3
 				
 				if my_uv is None :
-					my_popup("Error: Face %d is not a triangle " % face.index)
-					print("Error: Face %d is not a triangle " % face.index)
+					i = face.index
+					bpy.ops.object.mode_set(mode='OBJECT')
+					bpy.ops.object.select_all(action='DESELECT')
+					
+					mesh_obj.select=True
+					bpy.context.scene.objects.active = mesh_obj
+					
+					bpy.ops.object.mode_set(mode='EDIT')
+					bpy.ops.mesh.select_all(action="DESELECT")
+					bpy.context.tool_settings.mesh_select_mode[0] = True
+					
+					#On ne peut sélectionner les vertices qu'en object mode (apparemment, on bosse sur une copie)
+					bpy.ops.object.mode_set(mode='OBJECT')
+					mesh_obj.data.update (calc_tessface=True)
+					#on va prendre tous les points de la face, et les sélectionner.
+					for i in range(len(face.vertices)):
+						vert = face.vertices[i]
+						bmesh_data.vertices[vert].select = True
+						
+						
+					bpy.ops.object.mode_set(mode='EDIT')
+					
+					my_popup("Error: Face %d is not a triangle (selected)" % i)
+					print("Error: Face %d is not a triangle (selected)" % i)
 					return
 				
 				v_uv1 = Vector((my_uv[0], 1.0 - my_uv[1]))
@@ -1071,7 +1102,7 @@ def export_scm(outdir):
 				break
 
 	if arm_obj == None:
-		my_popup("Error: Please select your armature.")
+		my_popup("Error: No armature detected. If exists but not detected, please select your armature.")
 		return
 
 	# this defines the ARMATURE_SPACE.
@@ -1129,7 +1160,7 @@ def export_sca(outdir):
 				break
 
 	if arm_obj == None:
-		my_popup("Error: Please select your armature.")
+		my_popup("Error: No armature detected. If exists but not detected, please select your armature.")
 		return
 
 	# this defines the ARMATURE_SPACE.
